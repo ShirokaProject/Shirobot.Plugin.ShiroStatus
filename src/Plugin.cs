@@ -9,7 +9,7 @@ namespace ShiroStatus;
 
 [BotPlugin("ShiroStatus",
     Name = "ShiroStatus",
-    Version = "1.0.0",
+    Version = "0.1.0",
     Author = "ShirokaProject",
     GithubRepo = "ShirokaProject/Shirobot.Plugin.ShiroStatus",
     Description = "发送 #shiro 查看宿主版本、运行环境、运行时长、内存占用和接收消息数。",

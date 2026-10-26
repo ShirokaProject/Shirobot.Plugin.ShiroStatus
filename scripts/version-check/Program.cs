@@ -31,6 +31,9 @@ if (componentVersions.Count != 1)
 var assemblyVersion = packageVersion?.Split('+')[0];
 var projectVersion = args[1];
 var tagVersion = args.Length == 3 ? args[2] : projectVersion;
+// A two-component release tag such as v0.1 denotes the package version 0.1.0.
+if (Version.TryParse(tagVersion, out var parsedTag) && parsedTag.Build < 0)
+    tagVersion += ".0";
 if (assemblyVersion != projectVersion || componentVersions[0] != projectVersion || tagVersion != projectVersion)
     throw new InvalidOperationException($"Version mismatch: metadata={componentVersions[0]}, assembly={assemblyVersion}, project={projectVersion}, tag={tagVersion}.");
 Console.WriteLine($"Verified component metadata, assembly, project and release version: {projectVersion}");

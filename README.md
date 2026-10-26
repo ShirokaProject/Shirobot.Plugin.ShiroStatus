@@ -41,9 +41,9 @@ Windows 使用 `powershell -ExecutionPolicy Bypass -File scripts/dev.ps1`；在 
 ```sh
 dotnet run --project Tests/Verification -p:ShiroBotDevelopmentHostEnabled=false
 dotnet build -c Release
-dotnet run --project scripts/version-check -c Release -- bin/Release/net10.0/ShiroStatus.dll 1.0.0 1.0.0
+dotnet run --project scripts/version-check -c Release -- bin/Release/net10.0/ShiroStatus.dll 0.1.0 0.1
 ```
 
 验证程序覆盖群聊和私聊路由、额外参数不匹配、纯文字回复、六行文字格式、commit 元数据、内存换算、消息总数、宿主快照数据、9 分钟实时状态、旧宿主空快照，以及跨天/零值/负值时长。
 
-将 `bin/Release/net10.0/ShiroStatus.dll` 复制到目标宿主的 `plugins/` 目录。保留了官方模板的 GitHub Actions 构建、版本检查和 tag 发布工作流；推送 `v1.0.0` 可发布 DLL 与 ZIP。
+将 `bin/Release/net10.0/ShiroStatus.dll` 复制到目标宿主的 `plugins/` 目录。保留了官方模板的 GitHub Actions 构建、版本检查和 tag 发布工作流；插件版本为 `0.1.0`，对应 tag `v0.1`；推送 `v0.1` 可发布 DLL 与 ZIP。
