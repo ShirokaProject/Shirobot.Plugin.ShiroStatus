@@ -9,13 +9,23 @@ static void Check(bool condition, string message)
     if (!condition) throw new InvalidOperationException(message);
 }
 
-Check(StatusReport.FormatUptime(new TimeSpan(12, 3, 4, 5)) == "12天 3小时 4分钟", "Multi-day uptime must retain all days.");
-Check(StatusReport.FormatUptime(TimeSpan.Zero) == "0天 0小时 0分钟", "Zero uptime must be readable.");
-Check(StatusReport.FormatUptime(TimeSpan.FromSeconds(-1)) == "0天 0小时 0分钟", "Clock changes must not display negative uptime.");
+foreach (var (uptime, expectedUptime) in new[]
+{
+    (new TimeSpan(12, 3, 4, 5), "12天 3小时 4分钟"),
+    (TimeSpan.Zero, "0天 0小时 0分钟"),
+    (TimeSpan.FromSeconds(-1), "0天 0小时 0分钟")
+})
+{
+    var report = StatusReport.Create(new HostStatus { Uptime = uptime });
+    Check(report.Contains($"运行时长: {expectedUptime}\n"), "Report must handle multi-day, zero and negative uptime.");
+}
 
-Check(StatusReport.FormatVersion("1.0.2", "1.0.2+abcdef123456") == "1.0.2 (abcdef)", "Commit must use the host build's short hash.");
-Check(StatusReport.FormatVersion("1.0.2", null) == "1.0.2", "Missing commit must not produce an empty suffix.");
-Check(StatusReport.FormatVersion("1.0.2", "1.0.2+") == "1.0.2", "Empty commit must be omitted.");
+// Exercise optional host commit metadata without exposing formatting helpers in the plugin API.
+var formatVersion = typeof(StatusReport).GetMethod("FormatVersion", BindingFlags.Static | BindingFlags.NonPublic)!
+    .CreateDelegate<Func<string, string?, string>>();
+Check(formatVersion("1.0.2", "1.0.2+abcdef123456") == "1.0.2 (abcdef)", "Commit must use the host build's short hash.");
+Check(formatVersion("1.0.2", null) == "1.0.2", "Missing commit must not produce an empty suffix.");
+Check(formatVersion("1.0.2", "1.0.2+") == "1.0.2", "Empty commit must be omitted.");
 
 HostStatus? status = new()
 {

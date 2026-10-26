@@ -18,7 +18,7 @@ internal static class StatusReport
             $"接收消息: {status.MessageCount.ToString(CultureInfo.InvariantCulture)} 条");
     }
 
-    internal static string FormatVersion(string version, string? hostInformationalVersion)
+    private static string FormatVersion(string version, string? hostInformationalVersion)
     {
         // Match the host startup log: commit metadata follows '+'; show its first six characters.
         var parts = hostInformationalVersion?.Split('+', 2);
@@ -28,7 +28,7 @@ internal static class StatusReport
             : $"{version} ({commit[..Math.Min(6, commit.Length)]})";
     }
 
-    internal static string FormatUptime(TimeSpan uptime)
+    private static string FormatUptime(TimeSpan uptime)
     {
         if (uptime < TimeSpan.Zero) uptime = TimeSpan.Zero;
         return $"{uptime.Days}天 {uptime.Hours}小时 {uptime.Minutes}分钟";
