@@ -30,7 +30,7 @@ sh scripts/dev.sh --prepare    # 准备环境，不启动
 sh scripts/dev.sh              # 构建并启动
 ```
 
-当前机器复用了 AIChat 的本地开发宿主可执行文件（实际报告版本 1.0.2），配置和数据独立。当前 SDK 1.0.2 来自本机 NuGet 源 `ShiroBotLocalDev`；新机器需要配置该源或等待公开发布。官方脚本按 SDK 版本自动下载宿主，尚未发布的版本需手动准备对应宿主。Dashboard 地址为 <http://127.0.0.1:7003/dashboard/>，与 AIChat 的 7002 端口分开。首次启动的登录 Token 位于本项目开发宿主 `config.toml` 的 `[api].token`。
+SDK 使用 NuGet.org 发布的 `ShiroBot.SDK` 1.0.2，无需本地 NuGet 源。官方脚本按 SDK 版本自动下载宿主，配置和数据位于本项目独立的 `.shirobot-dev/host/<RID>/` 目录。Dashboard 地址及首次启动的登录 Token 请查看开发宿主 `config.toml` 的 `[api]` 配置。
 
 在 Dashboard 添加并启用适配器实例，连接机器人、启用插件并允许对应会话后发送 `#shiro`。Rider 中可在 `src/Plugin.cs` 的 `HandleStatusAsync` 设置断点，选择 `ShiroBot` 配置直接调试。修改代码后停止宿主，重新构建并启动。
 
@@ -41,9 +41,9 @@ Windows 使用 `powershell -ExecutionPolicy Bypass -File scripts/dev.ps1`；在 
 ```sh
 dotnet run --project Tests/Verification -p:ShiroBotDevelopmentHostEnabled=false
 dotnet build -c Release
-dotnet run --project scripts/version-check -c Release -- bin/Release/net10.0/ShiroStatus.dll 0.1.0 0.1
+dotnet run --project scripts/version-check -c Release -- bin/Release/net10.0/ShiroStatus.dll 0.1.0 0.1.0
 ```
 
 验证程序覆盖群聊和私聊路由、额外参数不匹配、纯文字回复、六行文字格式、commit 元数据、内存换算、消息总数、宿主快照数据、9 分钟实时状态、旧宿主空快照，以及跨天/零值/负值时长。
 
-将 `bin/Release/net10.0/ShiroStatus.dll` 复制到目标宿主的 `plugins/` 目录。保留了官方模板的 GitHub Actions 构建、版本检查和 tag 发布工作流；插件版本为 `0.1.0`，对应 tag `v0.1`；推送 `v0.1` 可发布 DLL 与 ZIP。
+将 `bin/Release/net10.0/ShiroStatus.dll` 复制到目标宿主的 `plugins/` 目录。保留了官方模板的 GitHub Actions 构建、版本检查和 tag 发布工作流；插件版本为 `0.1.0`，对应 tag `v0.1.0`；推送 `v0.1.0` 可发布 DLL 与 ZIP。
