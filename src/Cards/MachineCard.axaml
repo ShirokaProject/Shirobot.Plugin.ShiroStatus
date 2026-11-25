@@ -9,88 +9,127 @@
         <vm:MachineCardViewModel />
     </Design.DataContext>
 
+    <!-- 字号只用三级：16 标题 / 12 正文与数值 / 10 标签与说明 -->
     <UserControl.Resources>
         <ResourceDictionary>
-            <FontFamily x:Key="Mono">Menlo, SF Mono, Consolas, DejaVu Sans Mono, monospace</FontFamily>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="Surface" Color="#FAFAF8" />
-                    <SolidColorBrush x:Key="Line" Color="#E8E8E3" />
+                    <SolidColorBrush x:Key="Line" Color="#ECECE7" />
                     <SolidColorBrush x:Key="Track" Color="#EAEAE5" />
-                    <SolidColorBrush x:Key="TileBg" Color="#1C1D21" />
-                    <SolidColorBrush x:Key="TileFg" Color="#FAFAF8" />
                     <SolidColorBrush x:Key="TextTitle" Color="#1C1D21" />
-                    <SolidColorBrush x:Key="TextBody" Color="#33353B" />
+                    <SolidColorBrush x:Key="TextBody" Color="#2E3036" />
                     <SolidColorBrush x:Key="TextMeta" Color="#8A8C93" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="Surface" Color="#16171B" />
-                    <SolidColorBrush x:Key="Line" Color="#26282E" />
-                    <SolidColorBrush x:Key="Track" Color="#25272D" />
-                    <SolidColorBrush x:Key="TileBg" Color="#EDEDEA" />
-                    <SolidColorBrush x:Key="TileFg" Color="#16171B" />
-                    <SolidColorBrush x:Key="TextTitle" Color="#F2F2EF" />
-                    <SolidColorBrush x:Key="TextBody" Color="#D6D7DB" />
-                    <SolidColorBrush x:Key="TextMeta" Color="#8D9098" />
+                    <SolidColorBrush x:Key="Surface" Color="#2F3036" />
+                    <SolidColorBrush x:Key="Line" Color="#40424A" />
+                    <SolidColorBrush x:Key="Track" Color="#44464E" />
+                    <SolidColorBrush x:Key="TextTitle" Color="#F5F5F3" />
+                    <SolidColorBrush x:Key="TextBody" Color="#E4E5E8" />
+                    <SolidColorBrush x:Key="TextMeta" Color="#A6A9B0" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+
+            <!-- “标签 —— 数值”一行 -->
+            <DataTemplate x:Key="DetailRow" x:DataType="vm:MachineDetail">
+                <Grid ColumnDefinitions="Auto,Auto,*">
+                    <!-- 按 24x24 网格整体缩放，图标之间视觉大小一致 -->
+                    <Viewbox Width="14" Height="14" Margin="0,0,7,0" VerticalAlignment="Center">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="{Binding Icon, Converter={x:Static vm:GeometryConverter.Instance}}" Fill="{DynamicResource TextMeta}" />
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Grid.Column="1" Text="{Binding Label}" Foreground="{DynamicResource TextMeta}" FontSize="12"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding Value}" Foreground="{DynamicResource TextBody}" FontSize="12"
+                               FontWeight="Medium" Margin="16,0,0,0" HorizontalAlignment="Right" TextAlignment="Right"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
 
     <UserControl.Styles>
         <Style Selector="TextBlock.section">
-            <Setter Property="Foreground" Value="{DynamicResource TextMeta}" />
-            <Setter Property="FontSize" Value="9" />
+            <Setter Property="FontSize" Value="10" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="LetterSpacing" Value="1" />
+        </Style>
+        <Style Selector="TextBlock.meta">
+            <Setter Property="Foreground" Value="{DynamicResource TextMeta}" />
+            <Setter Property="FontSize" Value="10" />
         </Style>
         <Style Selector="Border.rule">
             <Setter Property="Height" Value="1" />
             <Setter Property="Background" Value="{DynamicResource Line}" />
         </Style>
+        <Style Selector="ItemsControl.rows">
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="7" />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
     </UserControl.Styles>
 
     <Border CornerRadius="6" ClipToBounds="True" Background="{DynamicResource Surface}">
-        <StackPanel Margin="18,18,18,12" Spacing="14">
+        <StackPanel Margin="18,18,18,14" Spacing="14">
             <!-- ===== 头部 ===== -->
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <Border Width="34" Height="34" CornerRadius="8" Background="{DynamicResource TileBg}">
+            <!-- 两行对齐：主机名 ↔ “系统运行”，系统版本 ↔ 运行时长 -->
+            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                <Border Grid.RowSpan="2" Width="36" Height="36" CornerRadius="8" Background="{Binding Theme}" VerticalAlignment="Center">
                     <!-- 只定高度，让 Path 按字形实际宽度居中；Margin 为视觉重心微调 -->
                     <Path Data="{Binding OsGlyph, Converter={x:Static vm:GeometryConverter.Instance}}"
-                          Fill="{DynamicResource TileFg}" Stretch="Uniform" Height="{Binding OsGlyphSize}"
+                          Fill="White" Stretch="Uniform" Height="{Binding OsGlyphSize}"
                           Margin="{Binding OsGlyphMargin}" UseLayoutRounding="False"
                           HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
-                <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center" Spacing="1">
-                    <TextBlock Text="{Binding HostName}" Foreground="{DynamicResource TextTitle}" FontSize="14.5"
-                               FontWeight="Bold" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding OsText}" Foreground="{DynamicResource TextMeta}" FontSize="9.5"
-                               TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Margin="11,0,8,0" Text="{Binding HostName}" Foreground="{DynamicResource TextTitle}"
+                           FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Bottom" />
+                <TextBlock Grid.Column="1" Grid.Row="1" Margin="11,2,8,0" Text="{Binding OsText}" Classes="meta"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Margin="0,0,0,1">
+                    <Viewbox Width="12" Height="12" VerticalAlignment="Center">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="{x:Static vm:MachineIcons.Uptime}" Fill="{DynamicResource TextMeta}" />
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="系统运行" Classes="meta" VerticalAlignment="Center" />
                 </StackPanel>
-                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
-                    <TextBlock Text="开机" Classes="section" HorizontalAlignment="Right" />
-                    <TextBlock Text="{Binding SystemUptimeText}" Foreground="{DynamicResource TextTitle}" FontSize="11"
-                               FontWeight="SemiBold" HorizontalAlignment="Right" />
-                </StackPanel>
+                <TextBlock Grid.Column="2" Grid.Row="1" Margin="0,2,0,0" Text="{Binding SystemUptimeText}"
+                           Foreground="{DynamicResource TextTitle}" FontSize="12" FontWeight="SemiBold"
+                           HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
 
             <Border Classes="rule" />
 
             <!-- ===== 占用：分段指示条 ===== -->
-            <StackPanel Spacing="12">
-                <TextBlock Text="占用" Classes="section" />
+            <StackPanel Spacing="10">
+                <TextBlock Text="占用" Classes="section" Foreground="{Binding Theme}" />
                 <ItemsControl ItemsSource="{Binding Meters}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="12" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:MachineMeter">
-                            <StackPanel Spacing="6" Margin="0,0,0,12">
-                                <Grid ColumnDefinitions="Auto,*,Auto">
-                                    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextTitle}" FontSize="11"
-                                               FontWeight="SemiBold" VerticalAlignment="Bottom" />
-                                    <TextBlock Grid.Column="1" Text="{Binding Caption}" Foreground="{DynamicResource TextMeta}"
-                                               FontSize="9" Margin="8,0,0,1" VerticalAlignment="Bottom" />
-                                    <TextBlock Grid.Column="2" Text="{Binding PercentText}" Foreground="{Binding Accent}"
-                                               FontFamily="{StaticResource Mono}" FontSize="13" FontWeight="Bold"
-                                               VerticalAlignment="Bottom" />
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                                    <Viewbox Width="14" Height="14" Margin="0,0,7,0" VerticalAlignment="Center">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Data="{Binding Icon, Converter={x:Static vm:GeometryConverter.Instance}}"
+                                                  Fill="{DynamicResource TextMeta}" />
+                                        </Canvas>
+                                    </Viewbox>
+                                    <TextBlock Grid.Column="1" Text="{Binding Label}" Foreground="{DynamicResource TextTitle}" FontSize="12"
+                                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{Binding Caption}" Classes="meta" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="{Binding PercentText}" Foreground="{Binding Accent}"
+                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </Grid>
                                 <!-- 内容宽 304：24 格 × 10.5 + 23 × 2.25 间距 -->
                                 <ItemsControl ItemsSource="{Binding Segments}">
@@ -101,7 +140,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:MachineSegment">
-                                            <Border Width="10.5" Height="9" CornerRadius="1.5" Background="{DynamicResource Track}">
+                                            <Border Width="10.5" Height="8" CornerRadius="1.5" Background="{DynamicResource Track}">
                                                 <Border CornerRadius="1.5" Background="{Binding Fill}" IsVisible="{Binding IsLit}" />
                                             </Border>
                                         </DataTemplate>
@@ -113,59 +152,48 @@
                 </ItemsControl>
             </StackPanel>
 
-            <Border Classes="rule" Margin="0,-12,0,0" />
+            <Border Classes="rule" />
 
-            <!-- ===== 规格：两列键值 ===== -->
+            <!-- ===== 规格 ===== -->
             <StackPanel Spacing="10">
-                <TextBlock Text="规格" Classes="section" />
-                <ItemsControl ItemsSource="{Binding Specs}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Columns="2" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:MachineDetail">
-                            <StackPanel Spacing="2" Margin="0,0,10,10">
-                                <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextMeta}" FontSize="9" />
-                                <TextBlock Text="{Binding Value}" Foreground="{DynamicResource TextBody}" FontSize="11"
-                                           FontWeight="Medium" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <TextBlock Text="规格" Classes="section" Foreground="{Binding Theme}" />
+                <ItemsControl Classes="rows" ItemsSource="{Binding Specs}" ItemTemplate="{StaticResource DetailRow}" />
             </StackPanel>
 
-            <Border Classes="rule" Margin="0,-10,0,0" />
+            <Border Classes="rule" IsVisible="{Binding HasAdapterDetails}" />
 
-            <!-- ===== ShiroBot ===== -->
-            <ItemsControl ItemsSource="{Binding ShiroStats}" IsVisible="{Binding HasShiroStats}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <UniformGrid Rows="1" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:MachineDetail">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextMeta}" FontSize="9" />
-                            <TextBlock Text="{Binding Value}" Foreground="{DynamicResource TextTitle}" FontSize="11.5"
-                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <!-- ===== 适配器：当前消息所在实例 ===== -->
+            <StackPanel Spacing="10" IsVisible="{Binding HasAdapterDetails}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="适配器" Classes="section" Foreground="{Binding Theme}" />
+                    <TextBlock Grid.Column="1" Text="{Binding AdapterCountText}" Classes="meta" />
+                </Grid>
+                <ItemsControl Classes="rows" ItemsSource="{Binding AdapterDetails}" ItemTemplate="{StaticResource DetailRow}" />
+            </StackPanel>
+
+            <Border Classes="rule" IsVisible="{Binding HasShiroStats}" />
+
+            <!-- ===== ShiroBot 自身 ===== -->
+            <StackPanel Spacing="10" IsVisible="{Binding HasShiroStats}">
+                <TextBlock Text="运行" Classes="section" Foreground="{Binding Theme}" />
+                <ItemsControl Classes="rows" ItemsSource="{Binding ShiroStats}" ItemTemplate="{StaticResource DetailRow}" />
+            </StackPanel>
 
             <!-- ===== 底部：小图标 + ShiroBot / 生成时间 ===== -->
             <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
-                <StackPanel Orientation="Horizontal" Spacing="5">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <!-- 发命令的人 -->
+                    <Border Width="16" Height="16" CornerRadius="8" ClipToBounds="True" IsVisible="{Binding HasUserAvatar}"
+                            VerticalAlignment="Center">
+                        <Image Source="{Binding UserAvatar}" Stretch="UniformToFill" />
+                    </Border>
+                    <Border Width="1" Height="11" Background="{DynamicResource TextMeta}" Opacity="0.55" IsVisible="{Binding HasUserAvatar}"
+                            VerticalAlignment="Center" />
                     <Image Source="{Binding Mascot}" Width="16" Height="16" VerticalAlignment="Center" />
-                    <TextBlock Text="ShiroBot" Foreground="{DynamicResource TextMeta}" FontSize="9.5"
-                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding BrandText}" Classes="meta" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Grid.Column="1" Text="{Binding GeneratedText}" Foreground="{DynamicResource TextMeta}"
-                           FontFamily="{StaticResource Mono}" FontSize="8.5" HorizontalAlignment="Right"
-                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding GeneratedText}" Classes="meta"
+                           HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
         </StackPanel>
     </Border>

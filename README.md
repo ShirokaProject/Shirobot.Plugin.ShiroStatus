@@ -2,7 +2,7 @@
 
 基于 [ShiroBot 官方插件模板](https://docs.shiroka.org/plugin/) 的文字状态插件。
 
-在群聊或私聊发送 `#Shiro状态`（也接受 `#shiro状态`），回复示例（数据以宿主快照为准）：
+在群聊或私聊发送 `#shiro` 或 `#Shiro状态`（也接受 `#Shiro`、`#shiro状态`），回复示例（数据以宿主快照为准）：
 
 ```text
 ==== ShiroBot 状态 ====
@@ -11,16 +11,23 @@
 运行时长: 0天 0小时 9分钟
 内存占用: 128.5 MB
 接收消息: 256 条
-==== 当前适配器 ====
-适配器: OneBot v1.2.3 (qq / onebot-v11)
-实例: 主号 (qq-main)
-账号: Shiro (10001)
-实例总数: 2 个 · 插件: 6 个
+适配器: OneBot v1.2.3 ×2 · Telegram v0.3.0
 ```
 
-“当前适配器”取自收到这条消息的适配器实例（`Context.AdapterInstance`），账号由 `Context.User.GetSelfAsync()` 获取，3 秒内拿不到时省略该行。
+“适配器”一行列出宿主已加载的全部适配器实例（`Context.GetAdapterInstances()`），同一适配器的多个实例合并为 `×N`。
 
-发送 `#moshiro` 回复一张机器状态卡片（系统监视器风格）：主机名、系统与开机时长；CPU、内存和每块磁盘（最多 4 块）的分段占用条，70% 起转琥珀、90% 起转红；处理器、负载、内核与运行时；ShiroBot 版本、运行时长、进程内存与消息数；左下角是 ShiroBot 小图标。macOS、Linux、Windows 均使用系统 API 或只读系统文件采集，单项失败只留空；渲染失败时回复一句文字提示。
+发送 `#moshiro` 回复一张机器状态卡片（系统监视器风格，标签在左、数值右对齐，每项配图标）：
+
+- 头部：系统图标、主机名、系统版本与架构，右侧为系统运行时长（`1d 7h 14min`）。
+- 占用：CPU、内存、Swap 和每块磁盘（最多 4 块，根目录总是保留）的分段占用条，正常为主题色，70% 起转琥珀、90% 起转红。
+- 规格：处理器（ARM Linux 无型号时按设备树或厂商/核心编码推断）、GPU（macOS 读 IOAccelerator，Linux 用 `nvidia-smi` 或 `lspci`，Windows 读显示适配器注册表）、内核（Linux 读 `/proc/sys/kernel/osrelease`）、进程数与运行时。
+- 适配器：收到这条消息的实例（`Context.AdapterInstance`）的适配器、平台、实例，以及 `Context.User.GetSelfAsync()` 取得的账号（3 秒内拿不到则省略），右上角为实例总数。
+- 运行：ShiroBot 版本、运行时长、进程内存与消息数。
+- 底部：发命令的人的头像 | ShiroBot 小图标 + `ShiroBot Status v版本`，右侧为生成时间。
+
+主题色取自机器人头像：缩小后按色相加权（饱和度越高权重越大，肤色降权），再把饱和度和亮度收进深浅两色都可读的范围。每个账号只取一次，结果写入插件目录的 `accent-colors.txt`；拿不到头像或头像接近黑白时用默认蓝色。适配器未提供头像地址时，QQ 平台按账号拼官方头像地址。
+
+macOS、Linux、Windows 均使用系统 API 或只读系统文件采集，单项失败只留空；渲染失败时回复一句文字提示。
 
 版本、环境、运行时长、内存和消息数读取 `Context.GetHostStatus()` 的宿主状态快照，运行时长与 Dashboard 使用同一数据源，显示到分钟；不再根据操作系统进程启动时间推算。旧宿主返回 `null` 时不回复。
 

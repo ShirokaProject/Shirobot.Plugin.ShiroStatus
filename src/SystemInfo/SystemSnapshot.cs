@@ -19,11 +19,16 @@ internal sealed record SystemSnapshot
     public int LogicalCores { get; init; } = Environment.ProcessorCount;
     /// <summary>0–1，采样失败为 null。</summary>
     public double? CpuUsage { get; init; }
-    /// <summary>1 / 5 / 15 分钟负载，Windows 为 null。</summary>
-    public double[]? LoadAverage { get; init; }
+    /// <summary>当前进程数，读不到为 0。</summary>
+    public int ProcessCount { get; init; }
     public long MemoryTotalBytes { get; init; }
     public long MemoryUsedBytes { get; init; }
     public double MemoryUsedRatio => MemoryTotalBytes > 0 ? Math.Clamp((double)MemoryUsedBytes / MemoryTotalBytes, 0, 1) : 0;
+    public long SwapTotalBytes { get; init; }
+    public long SwapUsedBytes { get; init; }
+    public double SwapUsedRatio => SwapTotalBytes > 0 ? Math.Clamp((double)SwapUsedBytes / SwapTotalBytes, 0, 1) : 0;
+    /// <summary>显卡型号，多块用 " / " 连接；读不到为空。</summary>
+    public string Gpu { get; init; } = string.Empty;
     public IReadOnlyList<DiskUsage> Disks { get; init; } = [];
     public TimeSpan SystemUptime { get; init; }
     public string KernelDescription { get; init; } = RuntimeInformation.OSDescription;
@@ -40,12 +45,16 @@ internal static partial class SystemSnapshotCollector
     {
         var cpuTask = SafeAsync(() => SampleCpuUsageAsync(cancellationToken));
         var (total, used) = Safe(ReadMemory, (0L, 0L));
+        var (swapTotal, swapUsed) = Safe(ReadSwap, (0L, 0L));
         var snapshot = new SystemSnapshot
         {
             CpuModel = Safe(ReadCpuModel, string.Empty),
-            LoadAverage = Safe(ReadLoadAverage, null),
+            ProcessCount = Safe(ReadProcessCount, 0),
             MemoryTotalBytes = total,
             MemoryUsedBytes = used,
+            SwapTotalBytes = swapTotal,
+            SwapUsedBytes = swapUsed,
+            Gpu = GpuName.Value,
             Disks = Safe(ReadDisks, []),
             SystemUptime = TimeSpan.FromMilliseconds(Environment.TickCount64),
             KernelDescription = Safe(ReadKernel, RuntimeInformation.OSDescription),
@@ -104,32 +113,62 @@ internal static partial class SystemSnapshotCollector
         if (OperatingSystem.IsWindows()) return Win.ReadCpuName();
         if (OperatingSystem.IsLinux())
         {
+            string? implementer = null, part = null;
             foreach (var line in File.ReadLines("/proc/cpuinfo"))
             {
                 var separator = line.IndexOf(':');
                 if (separator <= 0) continue;
                 var key = line[..separator].Trim();
-                if (key is "model name" or "Model" or "Hardware" or "cpu model")
-                    return line[(separator + 1)..].Trim();
+                var value = line[(separator + 1)..].Trim();
+                if (key is "model name" or "Model" or "Hardware" or "cpu model" && value.Length > 0) return value;
+                if (key == "CPU implementer") implementer ??= value;
+                else if (key == "CPU part") part ??= value;
             }
+
+            // ARM 的 /proc/cpuinfo 没有型号：先看设备树（树莓派等开发板），再按厂商 / 核心编码推断
+            const string deviceTree = "/sys/firmware/devicetree/base/model";
+            if (File.Exists(deviceTree) && File.ReadAllText(deviceTree).Trim('\0', ' ', '\n') is { Length: > 0 } board) return board;
+            if (implementer is not null) return ArmCpuName(implementer, part);
         }
 
         return string.Empty;
     }
 
-    /// <summary>macOS 上 OSDescription 只给出系统版本，这里改用 Darwin 内核版本。</summary>
-    private static string ReadKernel() =>
-        OperatingSystem.IsMacOS() && Mac.SysctlString("kern.osrelease") is { Length: > 0 } release
-            ? "Darwin " + release
-            : RuntimeInformation.OSDescription;
-
-    private static double[]? ReadLoadAverage()
+    private static string ArmCpuName(string implementer, string? part)
     {
-        var values = new double[3];
-        var read = OperatingSystem.IsMacOS() ? Mac.getloadavg(values, 3)
-            : OperatingSystem.IsLinux() ? Linux.getloadavg(values, 3)
-            : 0;
-        return read == 3 ? values : null;
+        var vendor = implementer.ToLowerInvariant() switch
+        {
+            "0x41" => "ARM", "0x42" => "Broadcom", "0x43" => "Cavium", "0x46" => "Fujitsu", "0x48" => "HiSilicon",
+            "0x4e" => "NVIDIA", "0x50" => "Ampere", "0x51" => "Qualcomm", "0x61" => "Apple", "0x6d" => "Microsoft",
+            "0xc0" => "Ampere", _ => "ARM",
+        };
+        var core = implementer.Equals("0x41", StringComparison.OrdinalIgnoreCase) ? part?.ToLowerInvariant() switch
+        {
+            "0xd03" => "Cortex-A53", "0xd04" => "Cortex-A35", "0xd05" => "Cortex-A55", "0xd07" => "Cortex-A57",
+            "0xd08" => "Cortex-A72", "0xd09" => "Cortex-A73", "0xd0a" => "Cortex-A75", "0xd0b" => "Cortex-A76",
+            "0xd0c" => "Neoverse N1", "0xd0d" => "Cortex-A77", "0xd41" => "Cortex-A78", "0xd40" => "Neoverse V1",
+            "0xd49" => "Neoverse N2", "0xd4f" => "Neoverse V2", _ => null,
+        } : null;
+        return core is null ? $"{vendor} ARM64" : $"{vendor} {core}";
+    }
+
+    /// <summary>
+    /// macOS 上 OSDescription 只给出系统版本，改用 Darwin 内核版本；
+    /// Linux 上 OSDescription 是发行版名称（"Ubuntu 24.04.5"），内核版本从 /proc/sys/kernel/osrelease 读。
+    /// </summary>
+    private static string ReadKernel()
+    {
+        if (OperatingSystem.IsMacOS() && Mac.SysctlString("kern.osrelease") is { Length: > 0 } release) return "Darwin " + release;
+        if (OperatingSystem.IsLinux() && File.Exists("/proc/sys/kernel/osrelease"))
+            return "Linux " + File.ReadAllText("/proc/sys/kernel/osrelease").Trim();
+        return RuntimeInformation.OSDescription.Trim();
+    }
+
+    private static int ReadProcessCount()
+    {
+        var processes = Process.GetProcesses();
+        foreach (var process in processes) process.Dispose();
+        return processes.Length;
     }
 
     // ---------------- 内存 ----------------
@@ -170,6 +209,75 @@ internal static partial class SystemSnapshotCollector
         return (app + Pages("Pages wired down") + Pages("Pages occupied by compressor")) * pageSize;
     }
 
+    // ---------------- Swap ----------------
+
+    private static (long Total, long Used) ReadSwap()
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            long total = 0, free = 0;
+            foreach (var line in File.ReadLines("/proc/meminfo"))
+            {
+                var parts = line.Split(':', 2);
+                if (parts.Length != 2 || !long.TryParse(parts[1].Replace("kB", "").Trim(), out var kb)) continue;
+                if (parts[0] == "SwapTotal") total = kb * 1024;
+                else if (parts[0] == "SwapFree") free = kb * 1024;
+            }
+
+            return (total, Math.Max(0, total - free));
+        }
+
+        if (OperatingSystem.IsMacOS()) return Mac.ReadSwap();
+        if (OperatingSystem.IsWindows()) return Win.ReadSwap();
+        return (0, 0);
+    }
+
+    // ---------------- GPU ----------------
+
+    /// <summary>显卡不会在运行中变化，只读一次。</summary>
+    private static readonly Lazy<string> GpuName = new(() => Safe(ReadGpu, string.Empty));
+
+    private static string ReadGpu()
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            // Apple Silicon / 新款 Intel Mac：IOAccelerator 上有 model 与 gpu-core-count
+            var output = RunProcess("/usr/sbin/ioreg", "-rc", "IOAccelerator", "-d1");
+            var names = new List<string>();
+            foreach (Match match in IoregModelRegex().Matches(output))
+            {
+                var tail = output[match.Index..];
+                var next = tail.IndexOf("+-o", 3, StringComparison.Ordinal);
+                var block = next > 0 ? tail[..next] : tail;
+                var cores = IoregCoresRegex().Match(block);
+                names.Add(cores.Success ? $"{match.Groups[1].Value} · {cores.Groups[1].Value} 核" : match.Groups[1].Value);
+            }
+
+            return string.Join(" / ", names.Distinct());
+        }
+
+        if (OperatingSystem.IsWindows()) return Win.ReadGpuNames();
+
+        if (OperatingSystem.IsLinux())
+        {
+            var nvidia = Safe(() => RunProcess("nvidia-smi", "--query-gpu=name", "--format=csv,noheader"), string.Empty);
+            var names = nvidia.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            if (names.Count == 0)
+            {
+                // 01:00.0 VGA compatible controller: NVIDIA Corporation GA104 [GeForce RTX 3070] (rev a1)
+                foreach (var line in Safe(() => RunProcess("lspci"), string.Empty).Split('\n'))
+                {
+                    var match = LspciGpuRegex().Match(line);
+                    if (match.Success) names.Add(RevisionRegex().Replace(match.Groups[1].Value, string.Empty).Trim());
+                }
+            }
+
+            return string.Join(" / ", names.Distinct());
+        }
+
+        return string.Empty;
+    }
+
     // ---------------- 磁盘 ----------------
 
     private static readonly string[] IgnoredFormats =
@@ -202,6 +310,8 @@ internal static partial class SystemSnapshotCollector
     private static bool IsUserVisibleDrive(DriveInfo drive, string mount)
     {
         if (OperatingSystem.IsWindows()) return drive.DriveType == DriveType.Fixed;
+        // 根目录总是保留，即使在容器里是 overlay
+        if (mount == "/") return true;
         if (IgnoredFormats.Contains(drive.DriveFormat, StringComparer.OrdinalIgnoreCase)) return false;
         if (OperatingSystem.IsMacOS()) return mount == "/" || (mount.StartsWith("/Volumes/", StringComparison.Ordinal) && drive.DriveType != DriveType.Network);
         return mount == "/" || !IgnoredLinuxPrefixes.Any(prefix => mount == prefix || mount.StartsWith(prefix + "/", StringComparison.Ordinal));
@@ -248,6 +358,18 @@ internal static partial class SystemSnapshotCollector
     [GeneratedRegex(@"page size of (\d+) bytes")]
     private static partial Regex PageSizeRegex();
 
+    [GeneratedRegex(@"""model"" = ""([^""]+)""")]
+    private static partial Regex IoregModelRegex();
+
+    [GeneratedRegex(@"""gpu-core-count"" = (\d+)")]
+    private static partial Regex IoregCoresRegex();
+
+    [GeneratedRegex(@"(?:VGA compatible controller|3D controller|Display controller):\s*(.+)$")]
+    private static partial Regex LspciGpuRegex();
+
+    [GeneratedRegex(@"\s*\(rev [0-9a-f]+\)$")]
+    private static partial Regex RevisionRegex();
+
     [SupportedOSPlatform("macos")]
     private static class Mac
     {
@@ -255,7 +377,6 @@ internal static partial class SystemSnapshotCollector
 
         [DllImport("libSystem.dylib")] public static extern uint mach_host_self();
         [DllImport("libSystem.dylib")] public static extern int host_statistics(uint host, int flavor, uint[] info, ref uint count);
-        [DllImport("libSystem.dylib")] public static extern int getloadavg(double[] loads, int count);
         [DllImport("libSystem.dylib", CharSet = CharSet.Ansi)]
         private static extern int sysctlbyname(string name, byte[]? oldp, ref nint oldlenp, nint newp, nint newlen);
 
@@ -268,6 +389,15 @@ internal static partial class SystemSnapshotCollector
             return System.Text.Encoding.UTF8.GetString(buffer, 0, (int)length).TrimEnd('\0').Trim();
         }
 
+        /// <summary>vm.swapusage 是 xsw_usage：total / avail / used 三个 uint64，后跟页大小与加密标记。</summary>
+        public static (long Total, long Used) ReadSwap()
+        {
+            nint length = 32;
+            var buffer = new byte[32];
+            if (sysctlbyname("vm.swapusage", buffer, ref length, 0, 0) != 0 || length < 24) return (0, 0);
+            return ((long)BitConverter.ToUInt64(buffer, 0), (long)BitConverter.ToUInt64(buffer, 16));
+        }
+
         public static long? SysctlInt64(string name)
         {
             nint length = 8;
@@ -276,11 +406,6 @@ internal static partial class SystemSnapshotCollector
         }
     }
 
-    [SupportedOSPlatform("linux")]
-    private static class Linux
-    {
-        [DllImport("libc")] public static extern int getloadavg(double[] loads, int count);
-    }
 
     [SupportedOSPlatform("windows")]
     private static class Win
@@ -312,6 +437,36 @@ internal static partial class SystemSnapshotCollector
             var status = new MemoryStatusEx { Length = (uint)Marshal.SizeOf<MemoryStatusEx>() };
             if (!GlobalMemoryStatusEx(ref status)) return (0, 0);
             return ((long)status.TotalPhys, (long)(status.TotalPhys - status.AvailPhys));
+        }
+
+        /// <summary>页面文件提交上限减去物理内存，近似为 swap 容量；已用部分同理。</summary>
+        public static (long Total, long Used) ReadSwap()
+        {
+            var status = new MemoryStatusEx { Length = (uint)Marshal.SizeOf<MemoryStatusEx>() };
+            if (!GlobalMemoryStatusEx(ref status) || status.TotalPageFile <= status.TotalPhys) return (0, 0);
+            var total = (long)(status.TotalPageFile - status.TotalPhys);
+            var committed = (long)(status.TotalPageFile - status.AvailPageFile);
+            var ramUsed = (long)(status.TotalPhys - status.AvailPhys);
+            return (total, Math.Clamp(committed - ramUsed, 0, total));
+        }
+
+        public static string ReadGpuNames()
+        {
+            // 显示适配器设备类
+            using var root = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}");
+            if (root is null) return string.Empty;
+            var names = new List<string>();
+            foreach (var name in root.GetSubKeyNames().Where(n => n.Length == 4 && n.All(char.IsDigit)))
+            {
+                using var key = root.OpenSubKey(name);
+                if (key?.GetValue("DriverDesc") is string desc && !string.IsNullOrWhiteSpace(desc)
+                    && !desc.Contains("Basic Display", StringComparison.OrdinalIgnoreCase)
+                    && !desc.Contains("Remote Display", StringComparison.OrdinalIgnoreCase))
+                    names.Add(desc.Trim());
+            }
+
+            return string.Join(" / ", names.Distinct());
         }
 
         public static string ReadCpuName()

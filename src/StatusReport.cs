@@ -5,12 +5,12 @@ using ShiroBot.SDK.Plugin;
 
 namespace ShiroStatus;
 
-/// <summary>当前消息所在的适配器实例、机器人账号与已加载实例数。</summary>
-internal sealed record AdapterReport(AdapterInstanceInfo? Instance, User? Self, int InstanceCount);
+/// <summary>当前消息所在的适配器实例、机器人账号与全部已加载实例，供 #moshiro 卡片使用。</summary>
+internal sealed record AdapterReport(AdapterInstanceInfo? Instance, User? Self, IReadOnlyList<AdapterInstanceInfo> Instances);
 
 internal static class StatusReport
 {
-    internal static string Create(HostStatus status, AdapterReport? adapter = null)
+    internal static string Create(HostStatus status, IReadOnlyList<AdapterInstanceInfo>? adapters = null)
     {
         var runtime = status.Runtime;
         var lines = new List<string>
@@ -22,31 +22,20 @@ internal static class StatusReport
             $"内存占用: {(runtime.MemoryBytes / 1024d / 1024d).ToString("F1", CultureInfo.InvariantCulture)} MB",
             $"接收消息: {status.MessageCount.ToString(CultureInfo.InvariantCulture)} 条",
         };
-        if (adapter is not null) lines.AddRange(FormatAdapter(adapter, status.PluginCount));
+        if (adapters is { Count: > 0 }) lines.Add("适配器: " + FormatAdapterList(adapters));
         return string.Join('\n', lines);
     }
 
-    private static IEnumerable<string> FormatAdapter(AdapterReport adapter, int pluginCount)
-    {
-        yield return "==== 当前适配器 ====";
-        if (adapter.Instance is { } instance)
-        {
-            var name = string.IsNullOrWhiteSpace(instance.AdapterName) ? instance.PackageId : instance.AdapterName;
-            var version = string.IsNullOrWhiteSpace(instance.Version) ? string.Empty : " v" + instance.Version.TrimStart('v', 'V');
-            var protocol = string.Join(" / ", new[] { instance.Platform, instance.Protocol }.Where(v => !string.IsNullOrWhiteSpace(v)));
-            yield return $"适配器: {name}{version}" + (protocol.Length > 0 ? $" ({protocol})" : string.Empty);
-            var instanceName = string.IsNullOrWhiteSpace(instance.Name) || instance.Name == instance.Id
-                ? instance.Id : $"{instance.Name} ({instance.Id})";
-            yield return $"实例: {instanceName}";
-        }
-        else
-        {
-            yield return "适配器: 未知";
-        }
+    /// <summary>"OneBot v1.2.3 ×2 · Telegram v0.3.0"：同一适配器的多个实例合并计数。</summary>
+    internal static string FormatAdapterList(IReadOnlyList<AdapterInstanceInfo> adapters) =>
+        string.Join(" · ", adapters
+            .GroupBy(AdapterTitle, StringComparer.Ordinal)
+            .Select(group => group.Count() > 1 ? $"{group.Key} ×{group.Count()}" : group.Key));
 
-        if (adapter.Self is { } self)
-            yield return string.IsNullOrWhiteSpace(self.Name) || self.Name == self.Id ? $"账号: {self.Id}" : $"账号: {self.Name} ({self.Id})";
-        yield return $"实例总数: {adapter.InstanceCount.ToString(CultureInfo.InvariantCulture)} 个 · 插件: {pluginCount.ToString(CultureInfo.InvariantCulture)} 个";
+    internal static string AdapterTitle(AdapterInstanceInfo instance)
+    {
+        var name = string.IsNullOrWhiteSpace(instance.AdapterName) ? instance.PackageId : instance.AdapterName;
+        return string.IsNullOrWhiteSpace(instance.Version) ? name : $"{name} v{instance.Version.TrimStart('v', 'V')}";
     }
 
     private static string FormatVersion(string version, string? hostInformationalVersion)
