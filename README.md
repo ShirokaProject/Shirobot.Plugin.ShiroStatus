@@ -2,16 +2,25 @@
 
 基于 [ShiroBot 官方插件模板](https://docs.shiroka.org/plugin/) 的文字状态插件。
 
-在群聊或私聊发送 `#shiro`，回复示例（数据以宿主快照为准）：
+在群聊或私聊发送 `#Shiro状态`（也接受 `#shiro状态`），回复示例（数据以宿主快照为准）：
 
 ```text
 ==== ShiroBot 状态 ====
-版本: 1.0.2 (abcdef)
-环境: macOS 27.0.1 arm64 && .NET 10.0.13
+版本: 1.0.4 (abcdef)
+环境: macOS 27.0.1 arm64 && .NET 11.0.0
 运行时长: 0天 0小时 9分钟
 内存占用: 128.5 MB
 接收消息: 256 条
+==== 当前适配器 ====
+适配器: OneBot v1.2.3 (qq / onebot-v11)
+实例: 主号 (qq-main)
+账号: Shiro (10001)
+实例总数: 2 个 · 插件: 6 个
 ```
+
+“当前适配器”取自收到这条消息的适配器实例（`Context.AdapterInstance`），账号由 `Context.User.GetSelfAsync()` 获取，3 秒内拿不到时省略该行。
+
+发送 `#moshiro` 回复一张机器状态卡片（系统监视器风格）：主机名、系统与开机时长；CPU、内存和每块磁盘（最多 4 块）的分段占用条，70% 起转琥珀、90% 起转红；处理器、负载、内核与运行时；ShiroBot 版本、运行时长、进程内存与消息数；左下角是 ShiroBot 小图标。macOS、Linux、Windows 均使用系统 API 或只读系统文件采集，单项失败只留空；渲染失败时回复一句文字提示。
 
 版本、环境、运行时长、内存和消息数读取 `Context.GetHostStatus()` 的宿主状态快照，运行时长与 Dashboard 使用同一数据源，显示到分钟；不再根据操作系统进程启动时间推算。旧宿主返回 `null` 时不回复。
 

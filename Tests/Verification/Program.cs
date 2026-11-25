@@ -48,11 +48,19 @@ var messages = DispatchProxy.Create<IMessageContext, TestProxy>();
     replies.Add(arguments!.OfType<string>().Single());
     return Task.FromResult(new SentMessage("reply"));
 };
+var users = DispatchProxy.Create<ShiroBot.SDK.Adapter.IUserService, TestProxy>();
+((TestProxy)(object)users).Call = (method, _) => method.Name == "GetSelfAsync"
+    ? Task.FromResult(new User("10001") { Name = "Shiro" })
+    : throw new NotSupportedException(method.Name);
+var adapterInstance = new AdapterInstanceInfo("qq-main", "主号", "ShiroBot.Adapter.OneBot", "OneBot", "1.2.3", "qq", "onebot-v11");
 var context = DispatchProxy.Create<IBotContext, TestProxy>();
 ((TestProxy)(object)context).Call = (method, _) => method.Name switch
 {
     "get_Message" => messages,
     "GetHostStatus" => status,
+    "get_AdapterInstance" => adapterInstance,
+    "get_User" => users,
+    "GetAdapterInstances" => new[] { adapterInstance, adapterInstance with { Id = "tg" } },
     _ => throw new NotSupportedException(method.Name)
 };
 var plugin = new Plugin();
@@ -65,29 +73,33 @@ foreach (var name in new[] { "GroupCommands", "DirectCommands" })
     {
         Platform = "qq-official", SelfId = "bot", MessageId = "1", Sender = new User("user"),
         Channel = name == "GroupCommands" ? Channel.Group("group") : Channel.Direct("user"),
-        Segments = [new TextSegment("#shiro")]
+        Segments = [new TextSegment("#Shiro状态")]
     };
-    Check(await router.DispatchAsync("#shiro", message), name + " must handle #shiro.");
-    Check(!await router.DispatchAsync("#shiro extra", message), "Extra arguments must not match the exact command.");
-    Check(!await router.DispatchAsync("hello #shiro", message), "Ordinary messages must not match.");
+    Check(await router.DispatchAsync("#Shiro状态", message), name + " must handle #Shiro状态.");
+    Check(!await router.DispatchAsync("#Shiro状态 extra", message), "Extra arguments must not match the exact command.");
+    Check(!await router.DispatchAsync("hello #Shiro状态", message), "Ordinary messages must not match.");
+    Check(!await router.DispatchAsync("#shiro", message), "The old #shiro command must no longer match.");
 }
 Check(replies.Count == 2, "Each matching message must get exactly one reply.");
-const string expected = "==== ShiroBot 状态 ====\n版本: 1.0.2 (abcdef)\n环境: macOS 27.0.1 arm64 && .NET 10.0.13\n运行时长: 19天 20小时 25分钟\n内存占用: 128.5 MB\n接收消息: 256 条";
+const string expected = "==== ShiroBot 状态 ====\n版本: 1.0.2 (abcdef)\n环境: macOS 27.0.1 arm64 && .NET 10.0.13\n运行时长: 19天 20小时 25分钟\n内存占用: 128.5 MB\n接收消息: 256 条" +
+    "\n==== 当前适配器 ====\n适配器: OneBot v1.2.3 (qq / onebot-v11)\n实例: 主号 (qq-main)\n账号: Shiro (10001)\n实例总数: 2 个 · 插件: 0 个";
 Check(replies.All(r => r == expected), "All fields must come from the host snapshot.");
 var directRouter = (CommandRouter<MessageEvent>)typeof(PluginBase).GetProperty("DirectCommands", flags)!.GetValue(plugin)!;
 var directMessage = new MessageEvent
 {
     Platform = "qq-official", SelfId = "bot", MessageId = "2", Sender = new User("user"),
-    Channel = Channel.Direct("user"), Segments = [new TextSegment("#shiro")]
+    Channel = Channel.Direct("user"), Segments = [new TextSegment("#shiro状态")]
 };
 status = status! with { Uptime = TimeSpan.FromMinutes(9), MessageCount = 257, Runtime = status.Runtime with { MemoryBytes = 0 } };
-await directRouter.DispatchAsync("#shiro", directMessage);
+await directRouter.DispatchAsync("#shiro状态", directMessage);
 Check(replies[^1].Contains("运行时长: 0天 0小时 9分钟\n内存占用: 0.0 MB\n接收消息: 257 条"), "Each command must read a fresh host snapshot, matching Dashboard uptime.");
 status = null;
-await directRouter.DispatchAsync("#shiro", directMessage);
+await directRouter.DispatchAsync("#shiro状态", directMessage);
 Check(replies.Count == 3, "Old hosts with no status support must not emit guessed status.");
+Check(await directRouter.DispatchAsync("#moshiro", directMessage), "#moshiro must be routed.");
+Check(replies.Count == 4 && replies[^1] == "机器状态卡片生成失败，请稍后重试。", "Render failures must fall back to a short text reply.");
 await plugin.OnUnload();
-Console.WriteLine("PASS: group/direct exact routes, text replies, host snapshots, fresh uptime, old-host fallback, commit metadata, memory, message counts and uptime boundaries.");
+Console.WriteLine("PASS: #Shiro状态/#moshiro routes, adapter section, text replies, host snapshots, fresh uptime, old-host fallback, commit metadata, memory, message counts and uptime boundaries.");
 Console.WriteLine(replies[2]);
 
 public class TestProxy : DispatchProxy

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <DebugType>portable</DebugType>
@@ -13,8 +13,12 @@
 
   <ItemGroup>
     <PackageReference Include="ShiroBot.SDK" />
+    <!-- 机器状态卡片用 Avalonia 渲染，与宿主 ShiroBot 1.0.4 的 Avalonia 12.2 对齐；Avalonia 由宿主提供。 -->
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Skia" />
     <Compile Remove="scripts/**/*.cs;Tests/**/*.cs" />
     <InternalsVisibleTo Include="ShiroStatus.Verification" />
+    <EmbeddedResource Include="Assets/shirobana.png" LogicalName="ShiroStatus.Assets.shirobana.png" />
   </ItemGroup>
 
 </Project>
