@@ -98,8 +98,16 @@ await directRouter.DispatchAsync("#shiro状态", directMessage);
 Check(replies.Count == 5, "Old hosts with no status support must not emit guessed status.");
 Check(await directRouter.DispatchAsync("#moshiro", directMessage), "#moshiro must be routed.");
 Check(replies.Count == 6 && replies[^1] == "机器状态卡片生成失败，请稍后重试。", "Render failures must fall back to a short text reply.");
+Check(ShiroStatus.Cards.AvatarAccent.ResolveAvatarUrl(null, "qq", "10001") == "https://q1.qlogo.cn/g?b=qq&nk=10001&s=100",
+    "Personal QQ accounts fall back to the qlogo avatar by QQ number.");
+Check(ShiroStatus.Cards.AvatarAccent.ResolveAvatarUrl(null, "qq-official", "5756337207113435206") is null,
+    "QQ official bot ids are not QQ numbers and must not be turned into qlogo URLs.");
+Check(ShiroStatus.Cards.AvatarAccent.ResolveAvatarUrl(null, "qq", "55C88F86C7E7BF9F9F53615CDAAA493F") is null,
+    "Openids are not QQ numbers.");
+Check(ShiroStatus.Cards.AvatarAccent.ResolveAvatarUrl("https://example.org/a.png", "qq-official", "x") == "https://example.org/a.png",
+    "An adapter-provided avatar always wins.");
 await plugin.OnUnload();
-Console.WriteLine("PASS: #shiro/#Shiro状态/#moshiro routes, adapter list line, text replies, host snapshots, fresh uptime, old-host fallback, commit metadata, memory, message counts and uptime boundaries.");
+Console.WriteLine("PASS: #shiro/#Shiro状态/#moshiro routes, avatar fallback, adapter list line, text replies, host snapshots, fresh uptime, old-host fallback, commit metadata, memory, message counts and uptime boundaries.");
 Console.WriteLine(replies[2]);
 
 public class TestProxy : DispatchProxy

@@ -132,12 +132,15 @@ internal static class AvatarAccent
         }
     }
 
-    /// <summary>适配器没给头像时，QQ 平台按账号拼出官方头像地址。</summary>
+    /// <summary>
+    /// 适配器没给头像时，个人 QQ 号协议（平台为 "qq"，如 OneBot）按 QQ 号拼出头像地址。
+    /// QQ 官方机器人（"qq-official" 等）的 ID 是 openid 或机器人自身的数字 ID，不是 QQ 号，不能这样拼。
+    /// </summary>
     public static string? ResolveAvatarUrl(string? avatarUrl, string? platform, string? userId)
     {
         if (!string.IsNullOrWhiteSpace(avatarUrl)) return avatarUrl;
-        if (string.IsNullOrWhiteSpace(userId) || !userId.All(char.IsAsciiDigit)) return null;
-        return platform is not null && platform.Contains("qq", StringComparison.OrdinalIgnoreCase)
+        if (string.IsNullOrWhiteSpace(userId) || !userId.All(char.IsAsciiDigit) || userId.Length > 12) return null;
+        return string.Equals(platform, "qq", StringComparison.OrdinalIgnoreCase)
             ? string.Create(CultureInfo.InvariantCulture, $"https://q1.qlogo.cn/g?b=qq&nk={userId}&s=100")
             : null;
     }
