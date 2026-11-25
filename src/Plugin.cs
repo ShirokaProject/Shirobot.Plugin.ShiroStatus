@@ -12,7 +12,7 @@ namespace ShiroStatus;
 
 [BotPlugin("ShiroStatus",
     Name = "ShiroStatus",
-    Version = "0.2.2",
+    Version = "0.2.3",
     Author = "ShirokaProject",
     GithubRepo = "ShirokaProject/Shirobot.Plugin.ShiroStatus",
     Description = "查询Shiro的运行状态与宿主机器信息",
@@ -52,11 +52,13 @@ public sealed class Plugin : PluginBase
             var machine = await SystemSnapshotCollector.CollectAsync(timeout.Token).ConfigureAwait(false);
             var self = await TryGetSelfAsync().ConfigureAwait(false);
             var adapter = new AdapterReport(Context.AdapterInstance, self, SafeInstances());
-            var avatarTask = AvatarAccent.DownloadAsync(
-                AvatarAccent.ResolveAvatarUrl(message.Sender.AvatarUrl, Context.AdapterInstance?.Platform, message.Sender.Id), timeout.Token);
-            var theme = await GetThemeColorAsync(self, timeout.Token).ConfigureAwait(false);
-            var model = MachineCardViewModel.Create(machine, Context.GetHostStatus(), DateTimeOffset.Now, adapter, theme,
-                await avatarTask.ConfigureAwait(false));
+            // 左下角和主题色都用机器人自己的头像，下载一次共用
+            var platform = Context.AdapterInstance?.Platform;
+            var botAvatar = self is null ? null : await AvatarAccent.DownloadAsync(
+                AvatarAccent.ResolveAvatarUrl(self.AvatarUrl, platform, self.Id), timeout.Token).ConfigureAwait(false);
+            var theme = self is null ? null
+                : await AvatarAccent.GetAsync($"{platform}:{self.Id}", botAvatar, PluginDirectoryOrNull()).ConfigureAwait(false);
+            var model = MachineCardViewModel.Create(machine, Context.GetHostStatus(), DateTimeOffset.Now, adapter, theme, botAvatar);
             var png = await Context.RenderControlPngAsync<MachineCard>(model, new ControlRenderOptions(RenderTheme.Auto), timeout.Token)
                 .ConfigureAwait(false);
             await Context.Message.ReplyAsync(message, new ImageSegment("base64://" + Convert.ToBase64String(png))).ConfigureAwait(false);
@@ -68,16 +70,10 @@ public sealed class Plugin : PluginBase
         }
     }
 
-    /// <summary>主题色取自机器人头像，每个账号只取一次并写入插件目录；失败时用默认色。</summary>
-    private async Task<Avalonia.Media.Color?> GetThemeColorAsync(User? self, CancellationToken cancellationToken)
+    private string? PluginDirectoryOrNull()
     {
-        if (self is null) return null;
-        var platform = Context.AdapterInstance?.Platform;
-        var avatar = AvatarAccent.ResolveAvatarUrl(self.AvatarUrl, platform, self.Id);
-        string? directory = null;
-        try { directory = Context.PluginDirectory; }
-        catch (Exception) { }
-        return await AvatarAccent.GetAsync($"{platform}:{self.Id}", avatar, directory, cancellationToken).ConfigureAwait(false);
+        try { return Context.PluginDirectory; }
+        catch (Exception) { return null; }
     }
 
     private async Task<User?> TryGetSelfAsync()

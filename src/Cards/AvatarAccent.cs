@@ -19,22 +19,23 @@ internal static class AvatarAccent
     private static readonly SemaphoreSlim FileLock = new(1, 1);
     private static int _loaded;
 
-    /// <summary>取不到头像或头像接近灰度时返回 null，由调用方使用默认色。</summary>
-    public static async Task<Color?> GetAsync(string accountKey, string? avatarUrl, string? cacheDirectory, CancellationToken cancellationToken)
+    /// <summary>
+    /// 主题色：已缓存时直接返回；否则从传入的头像字节提取并写入缓存。
+    /// 没有头像或头像接近灰度时返回 null，由调用方使用默认色。
+    /// </summary>
+    public static async Task<Color?> GetAsync(string accountKey, byte[]? avatarBytes, string? cacheDirectory)
     {
         LoadCache(cacheDirectory);
         if (Cache.TryGetValue(accountKey, out var cached)) return cached;
-        if (string.IsNullOrWhiteSpace(avatarUrl)) return null;
-
+        if (avatarBytes is not { Length: > 0 }) return null;
         try
         {
-            var bytes = await Http.GetByteArrayAsync(avatarUrl, cancellationToken).ConfigureAwait(false);
-            if (Extract(bytes) is not { } color) return null;
+            if (Extract(avatarBytes) is not { } color) return null;
             Cache[accountKey] = color;
             await SaveCacheAsync(cacheDirectory).ConfigureAwait(false);
             return color;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception)
         {
             return null;
         }

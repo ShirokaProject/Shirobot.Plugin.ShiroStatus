@@ -72,7 +72,7 @@ public sealed class MachineCardViewModel
 
     public string GeneratedText { get; init; } = "2026-11-26 00:38";
 
-    /// <summary>左下角：发命令的人的头像 | ShiroBot 小图标 + “ShiroBot Status v版本”。</summary>
+    /// <summary>左下角：机器人自己的头像 | ShiroBot 小图标 + “ShiroBot Status v版本”。</summary>
     public string BrandText { get; } = "ShiroBot Status v" +
         (typeof(MachineCardViewModel).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "?");

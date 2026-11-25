@@ -182,7 +182,7 @@
             <!-- ===== 底部：小图标 + ShiroBot / 生成时间 ===== -->
             <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <!-- 发命令的人 -->
+                    <!-- 机器人自己的头像 -->
                     <Border Width="16" Height="16" CornerRadius="8" ClipToBounds="True" IsVisible="{Binding HasUserAvatar}"
                             VerticalAlignment="Center">
                         <Image Source="{Binding UserAvatar}" Stretch="UniformToFill" />

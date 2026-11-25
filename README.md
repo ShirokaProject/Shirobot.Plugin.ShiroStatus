@@ -23,7 +23,7 @@
 - 规格：处理器（ARM Linux 无型号时按设备树或厂商/核心编码推断）、GPU（macOS 读 IOAccelerator，Linux 用 `nvidia-smi` 或 `lspci`，Windows 读显示适配器注册表）、内核（Linux 读 `/proc/sys/kernel/osrelease`）、进程数与运行时。
 - 适配器：收到这条消息的实例（`Context.AdapterInstance`）的适配器、平台、实例，以及 `Context.User.GetSelfAsync()` 取得的账号（3 秒内拿不到则省略），右上角为实例总数。
 - 运行：ShiroBot 版本、运行时长、进程内存与消息数。
-- 底部：发命令的人的头像 | ShiroBot 小图标 + `ShiroBot Status v版本`，右侧为生成时间。
+- 底部：机器人自己的头像 | ShiroBot 小图标 + `ShiroBot Status v版本`，右侧为生成时间。
 
 主题色取自机器人头像：缩小后按色相加权（饱和度越高权重越大，肤色降权），再把饱和度和亮度收进深浅两色都可读的范围。每个账号只取一次，结果写入插件目录的 `accent-colors.txt`；拿不到头像或头像接近黑白时用默认蓝色。适配器未提供头像地址时，QQ 平台按账号拼官方头像地址。
 
